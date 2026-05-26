@@ -1,11 +1,20 @@
 import { useContext, useEffect, useRef } from "react";
 import { GameContext } from "../context/GameContext";
-import { GameMessage } from "../types/index";
 
 const WS_URL = "ws://localhost:8000/ws";
+const CLIENT_ID_KEY = "unoClientId";
+
+function getClientId(): string {
+  const existingId = sessionStorage.getItem(CLIENT_ID_KEY);
+  if (existingId) return existingId;
+
+  const clientId = crypto.randomUUID();
+  sessionStorage.setItem(CLIENT_ID_KEY, clientId);
+  return clientId;
+}
 
 export interface GameSocketMethods {
-  ws: WebSocket;
+  ws: WebSocket | null;
   playCard: (cardId: string) => void;
   drawCard: () => void;
 }
@@ -15,7 +24,9 @@ export function useGameSocket(): GameSocketMethods {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(WS_URL);
+    const url = new URL(WS_URL);
+    url.searchParams.set("clientId", getClientId());
+    const ws = new WebSocket(url);
 
     ws.onmessage = (event) => {
       try {
@@ -39,8 +50,14 @@ export function useGameSocket(): GameSocketMethods {
     wsRef.current = ws;
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (
+        ws.readyState === WebSocket.CONNECTING ||
+        ws.readyState === WebSocket.OPEN
+      ) {
         ws.close();
+      }
+      if (wsRef.current === ws) {
+        wsRef.current = null;
       }
     };
   }, [dispatch]);
@@ -58,7 +75,7 @@ export function useGameSocket(): GameSocketMethods {
   };
 
   return {
-    ws: wsRef.current || new WebSocket(WS_URL),
+    ws: wsRef.current,
     playCard,
     drawCard,
   };

@@ -1,7 +1,7 @@
 import { useContext } from "react";
-import { GameContext, GameProvider } from "./context/GameContext";
-import { useGameSocket } from "./socket/useGameSocket";
-import { Card } from "./components/Card";
+import { GameContext, GameProvider } from "./context/GameContext.tsx";
+import { useGameSocket } from "./socket/useGameSocket.ts";
+import { Card } from "./components/Card.tsx";
 
 function GameBoard() {
   const { state } = useContext(GameContext);
@@ -11,9 +11,12 @@ function GameBoard() {
     (p) => p.id === state.currentPlayerId,
   );
   const localPlayer = state.players.find((p) => p.id === state.localPlayerId);
-  const opponents = state.players.filter((p) => p.id !== localPlayer?.id);
+  const opponents = localPlayer
+    ? state.players.filter((p) => p.id !== localPlayer.id)
+    : state.players;
 
   const isMyTurn = localPlayer && currentPlayer?.id === localPlayer.id;
+  const isSpectating = state.status !== "waiting" && !localPlayer;
   const isGameFinished = state.status === "finished";
   const winner = state.players.find((p) => p.id === state.winnerId);
 
@@ -47,6 +50,8 @@ function GameBoard() {
             ? "Waiting for players..."
             : isGameFinished
               ? "Game Finished"
+              : isSpectating
+                ? "Spectating"
               : isMyTurn
                 ? "Your Turn"
                 : "Opponent's Turn"}
@@ -207,13 +212,20 @@ function GameBoard() {
               <Card
                 key={card.id}
                 card={card}
-                isPlayable={localPlayer.playableCardIds.includes(card.id)}
+                isPlayable={
+                  Boolean(isMyTurn) &&
+                  localPlayer.playableCardIds.includes(card.id)
+                }
                 onClick={() => playCard(card.id)}
               />
             ))
           ) : (
             <div style={{ fontSize: "14px", color: "#999" }}>
-              {state.status === "waiting" ? "Waiting for game..." : "No cards"}
+              {state.status === "waiting"
+                ? "Waiting for game..."
+                : isSpectating
+                  ? "Spectating"
+                  : "No cards"}
             </div>
           )}
         </div>
