@@ -1,9 +1,12 @@
-import { Card as CardType } from "../types/index";
+import { Card as CardType } from "../types/index.ts";
 
 interface CardProps {
   card: CardType;
   isPlayable: boolean;
   onClick?: () => void;
+  selected?: boolean;
+  isInteractive?: boolean;
+  overlapOffset?: number;
 }
 
 const colorMap: Record<string, { background: string; text: string }> = {
@@ -13,19 +16,33 @@ const colorMap: Record<string, { background: string; text: string }> = {
   yellow: { background: "#FFD43B", text: "#1F2933" },
 };
 
-export function Card({ card, isPlayable, onClick }: CardProps) {
+export function Card({
+  card,
+  isPlayable,
+  onClick,
+  selected = false,
+  isInteractive = true,
+  overlapOffset = 0,
+}: CardProps) {
   const colors = colorMap[card.color];
+  const className = [
+    "uno-card",
+    isPlayable && isInteractive ? "playable" : "",
+    selected ? "selected" : "",
+    !isInteractive ? "inactive" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
-      onClick={isPlayable ? onClick : undefined}
+      className={className}
+      onClick={isPlayable && isInteractive ? onClick : undefined}
       style={{
         width: "80px",
         height: "120px",
         backgroundColor: colors.background,
-        border: isPlayable
-          ? "3px solid #FFFFFF"
-          : "2px solid rgba(0, 0, 0, 0.12)",
+        border: "2px solid rgba(255, 255, 255, 0.7)",
         borderRadius: "8px",
         display: "flex",
         alignItems: "center",
@@ -33,27 +50,10 @@ export function Card({ card, isPlayable, onClick }: CardProps) {
         fontSize: "36px",
         fontWeight: "bold",
         color: colors.text,
-        cursor: isPlayable ? "pointer" : "default",
-        boxShadow: isPlayable
-          ? "0 0 0 3px #51CF66, 0 8px 18px rgba(0, 0, 0, 0.18)"
-          : "0 4px 10px rgba(0, 0, 0, 0.12)",
-        opacity: 1,
-        transition: "all 0.15s ease",
-      }}
-      onMouseEnter={(e) => {
-        if (isPlayable) {
-          const el = e.currentTarget as HTMLDivElement;
-          el.style.boxShadow =
-            "0 0 0 3px #51CF66, 0 12px 22px rgba(0, 0, 0, 0.22)";
-          el.style.transform = "translateY(-2px)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLDivElement;
-        el.style.boxShadow = isPlayable
-          ? "0 0 0 3px #51CF66, 0 8px 18px rgba(0, 0, 0, 0.18)"
-          : "0 4px 10px rgba(0, 0, 0, 0.12)";
-        el.style.transform = "translateY(0)";
+        cursor: isPlayable && isInteractive ? "pointer" : "default",
+        boxShadow: "0 7px 14px rgba(0, 0, 0, 0.25)",
+        marginLeft: overlapOffset ? `${overlapOffset}px` : 0,
+        flexShrink: 0,
       }}
     >
       {card.number}

@@ -18,8 +18,14 @@ let drawPile: Card[] = [];
 let discardPile: Card[] = [];
 
 function initializeGame(): void {
+  if (gameState?.status === "playing") return;
+
   const playerConnections = getFirstDistinctClientConnections(2);
   if (playerConnections.length < 2) return;
+
+  connectionPlayerIds.clear();
+  playerWebSockets.clear();
+  clientPlayerIds.clear();
 
   const players: Player[] = playerConnections.map((_, index) => ({
     id: String(index + 1),
@@ -223,7 +229,7 @@ async function handleWebSocket(req: Request): Promise<Response> {
     connectionClientIds.set(connectionId, clientId);
 
     const existingPlayerId = clientPlayerIds.get(clientId);
-    if (existingPlayerId && gameState) {
+    if (existingPlayerId && gameState?.status === "playing") {
       connectionPlayerIds.set(connectionId, existingPlayerId);
       playerWebSockets.set(existingPlayerId, socket);
       sendPlayerId(socket, existingPlayerId);
@@ -231,9 +237,8 @@ async function handleWebSocket(req: Request): Promise<Response> {
       return;
     }
 
-    if (gameState === null) {
-      initializeGame();
-    } else {
+    initializeGame();
+    if (gameState) {
       sendGameState(socket);
     }
   };
