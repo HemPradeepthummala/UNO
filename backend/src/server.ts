@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Context } from 'hono'
+import type { Context } from "hono";
 import type { GameState } from "./types/game.ts";
 import type { Player } from "./types/player.ts";
 import type { Card } from "./types/card.ts";
@@ -15,8 +15,10 @@ let drawPile: Card[] = [];
 let discardPile: Card[] = [];
 
 function initializeGame(): void {
+  console.log("game initialized");
   const connectionIds = Array.from(clientConnections.keys()).slice(0, 2);
   if (connectionIds.length < 2) return;
+  console.log(connectionIds);
 
   const players: Player[] = connectionIds.map((connId, index) => ({
     id: String(index + 1),
