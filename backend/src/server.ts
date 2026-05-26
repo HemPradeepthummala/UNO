@@ -9,32 +9,32 @@ const app = new Hono();
 
 const clientConnections = new Map<string, WebSocket>();
 const playerWebSockets = new Map<string, WebSocket>();
+const connectionPlayerIds = new Map<string, string>();
+const connectionClientIds = new Map<string, string>();
+const clientPlayerIds = new Map<string, string>();
 let nextConnectionId = 1;
 let gameState: GameState | null = null;
 let drawPile: Card[] = [];
 let discardPile: Card[] = [];
 
 function initializeGame(): void {
-  const connectionIds = Array.from(clientConnections.keys()).slice(0, 2);
-  if (connectionIds.length < 2) return;
+  const playerConnections = getFirstDistinctClientConnections(2);
+  if (playerConnections.length < 2) return;
 
-  const players: Player[] = connectionIds.map((connId, index) => ({
+  const players: Player[] = playerConnections.map((_, index) => ({
     id: String(index + 1),
     hand: [],
     playableCardIds: [],
   }));
 
-  connectionIds.forEach((connId, index) => {
-    const ws = clientConnections.get(connId);
+  playerConnections.forEach(({ connectionId, clientId }, index) => {
+    const ws = clientConnections.get(connectionId);
     if (ws) {
-      playerWebSockets.set(String(index + 1), ws);
-      const msg = JSON.stringify({
-        type: "PLAYER_ID",
-        payload: String(index + 1),
-      });
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(msg);
-      }
+      const playerId = String(index + 1);
+      clientPlayerIds.set(clientId, playerId);
+      connectionPlayerIds.set(connectionId, playerId);
+      playerWebSockets.set(playerId, ws);
+      sendPlayerId(ws, playerId);
     }
   });
 
@@ -53,7 +53,6 @@ function initializeGame(): void {
   discardPile.push(startCard);
 
   const currentPlayer = players[0];
-  updatePlayableCards(currentPlayer);
 
   gameState = {
     players,
@@ -62,8 +61,56 @@ function initializeGame(): void {
     drawPileCount: drawPile.length,
     status: "playing",
   };
+  updatePlayableCards(currentPlayer);
 
   broadcastGameState();
+}
+
+function getFirstDistinctClientConnections(
+  count: number,
+): Array<{ connectionId: string; clientId: string }> {
+  const seenClientIds = new Set<string>();
+  const connections: Array<{ connectionId: string; clientId: string }> = [];
+
+  for (const [connectionId, clientId] of connectionClientIds) {
+    const socket = clientConnections.get(connectionId);
+    if (
+      socket?.readyState !== WebSocket.OPEN ||
+      seenClientIds.has(clientId) ||
+      clientPlayerIds.has(clientId)
+    ) {
+      continue;
+    }
+
+    seenClientIds.add(clientId);
+    connections.push({ connectionId, clientId });
+
+    if (connections.length === count) break;
+  }
+
+  return connections;
+}
+
+function sendPlayerId(socket: WebSocket, playerId: string): void {
+  if (socket.readyState !== WebSocket.OPEN) return;
+
+  socket.send(
+    JSON.stringify({
+      type: "PLAYER_ID",
+      payload: playerId,
+    }),
+  );
+}
+
+function sendGameState(socket: WebSocket): void {
+  if (socket.readyState !== WebSocket.OPEN || !gameState) return;
+
+  socket.send(
+    JSON.stringify({
+      type: "GAME_STATE",
+      payload: gameState,
+    }),
+  );
 }
 
 function updatePlayableCards(player: Player): void {
@@ -87,10 +134,8 @@ function switchTurn(): void {
 function handlePlayCard(connectionId: string, cardId: string): void {
   if (!gameState || gameState.status !== "playing") return;
 
-  const playerIndex = Array.from(clientConnections.keys()).indexOf(
-    connectionId,
-  );
-  const playerId = String(playerIndex + 1);
+  const playerId = connectionPlayerIds.get(connectionId);
+  if (!playerId) return;
 
   if (gameState.currentPlayerId !== playerId) return;
 
@@ -121,10 +166,8 @@ function handlePlayCard(connectionId: string, cardId: string): void {
 function handleDrawCard(connectionId: string): void {
   if (!gameState || gameState.status !== "playing") return;
 
-  const playerIndex = Array.from(clientConnections.keys()).indexOf(
-    connectionId,
-  );
-  const playerId = String(playerIndex + 1);
+  const playerId = connectionPlayerIds.get(connectionId);
+  if (!playerId) return;
 
   if (gameState.currentPlayerId !== playerId) return;
 
@@ -172,20 +215,28 @@ async function handleWebSocket(req: Request): Promise<Response> {
 
   const { socket, response } = Deno.upgradeWebSocket(req);
   const connectionId = String(nextConnectionId++);
+  const url = new URL(req.url);
+  const clientId = url.searchParams.get("clientId") || connectionId;
 
-  clientConnections.set(connectionId, socket);
+  socket.onopen = () => {
+    clientConnections.set(connectionId, socket);
+    connectionClientIds.set(connectionId, clientId);
 
-  if (gameState === null && clientConnections.size === 2) {
-    initializeGame();
-  } else if (gameState) {
-    const message = JSON.stringify({
-      type: "GAME_STATE",
-      payload: gameState,
-    });
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(message);
+    const existingPlayerId = clientPlayerIds.get(clientId);
+    if (existingPlayerId && gameState) {
+      connectionPlayerIds.set(connectionId, existingPlayerId);
+      playerWebSockets.set(existingPlayerId, socket);
+      sendPlayerId(socket, existingPlayerId);
+      sendGameState(socket);
+      return;
     }
-  }
+
+    if (gameState === null) {
+      initializeGame();
+    } else {
+      sendGameState(socket);
+    }
+  };
 
   socket.onmessage = (event) => {
     try {
@@ -201,17 +252,13 @@ async function handleWebSocket(req: Request): Promise<Response> {
   };
 
   socket.onclose = () => {
+    const playerId = connectionPlayerIds.get(connectionId);
+    const closedSocket = clientConnections.get(connectionId);
     clientConnections.delete(connectionId);
-    const playerIndex = Array.from(clientConnections.keys()).indexOf(
-      connectionId,
-    );
-    const playerId = String(playerIndex + 1);
-    playerWebSockets.delete(playerId);
-
-    if (gameState) {
-      gameState = null;
-      drawPile = [];
-      discardPile = [];
+    connectionPlayerIds.delete(connectionId);
+    connectionClientIds.delete(connectionId);
+    if (playerId && playerWebSockets.get(playerId) === closedSocket) {
+      playerWebSockets.delete(playerId);
     }
   };
 
