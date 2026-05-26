@@ -1,9 +1,11 @@
 export type CardColor = "red" | "green" | "blue" | "yellow";
+export type ActionType = "draw_two" | "skip" | "reverse";
+export type CardValue = number | ActionType;
 
 export interface Card {
   id: string;
   color: CardColor;
-  number: number;
+  value: CardValue;
 }
 
 export interface Player {
@@ -21,6 +23,11 @@ export interface GameState {
   drawPileCount: number;
   status: GameStatus;
   winnerId?: string;
+  lastAction?: {
+    type: ActionType;
+    playerId: string;
+    targetPlayerId?: string;
+  } | null;
 }
 
 export interface GameMessage {

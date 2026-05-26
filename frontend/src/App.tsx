@@ -18,7 +18,7 @@ function OpponentCards({ count }: { count: number }) {
             key={`${index}-${count}`}
             className="card-back"
             style={{
-              marginLeft: index === 0 ? 0 : -52,
+              marginLeft: index === 0 ? 0 : -58,
               transform: `translateX(${start + index * 14}px) rotate(${rotate}deg)`,
             }}
           >
@@ -55,6 +55,8 @@ function GameBoard() {
   const { state } = useContext(GameContext);
   const { playCard, drawCard } = useGameSocket();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string>("");
+  const [showActionMessage, setShowActionMessage] = useState(false);
 
   const currentPlayer = state.players.find((p) => p.id === state.currentPlayerId);
   const localPlayer = state.players.find((p) => p.id === state.localPlayerId);
@@ -77,6 +79,25 @@ function GameBoard() {
   useEffect(() => {
     setSelectedCardId(null);
   }, [state.currentPlayerId]);
+
+  useEffect(() => {
+    const action = state.lastAction;
+    if (!action) return;
+
+    const actor = action.playerId;
+    const target = action.targetPlayerId;
+    const message =
+      action.type === "draw_two"
+        ? `+2  Player ${actor} -> Player ${target}`
+        : action.type === "skip"
+          ? `SKIP  Player ${actor} skipped Player ${target}`
+          : "REVERSE  Direction changed";
+
+    setActionMessage(message);
+    setShowActionMessage(true);
+    const timer = window.setTimeout(() => setShowActionMessage(false), 900);
+    return () => window.clearTimeout(timer);
+  }, [state.lastAction]);
 
   const onDraw = () => {
     if (!isMyTurn || isGameFinished) return;
@@ -113,6 +134,10 @@ function GameBoard() {
       </div>
 
       <div className="table-area">
+        <div className={`action-indicator ${showActionMessage ? "visible" : ""}`}>
+          {actionMessage}
+        </div>
+
         <OpponentSpot
           player={topOpponent}
           active={currentPlayer?.id === topOpponent?.id}

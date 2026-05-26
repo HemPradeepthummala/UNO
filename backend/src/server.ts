@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from 'hono'
 import type { GameState } from "./types/game.ts";
 import type { Player } from "./types/player.ts";
-import type { Card } from "./types/card.ts";
+import type { ActionType, Card } from "./types/card.ts";
 import { createDeck, isPlayable, shuffleArray } from "./types/card.ts";
 
 const app = new Hono();
@@ -16,6 +16,7 @@ let nextConnectionId = 1;
 let gameState: GameState | null = null;
 let drawPile: Card[] = [];
 let discardPile: Card[] = [];
+let turnDirection: 1 | -1 = 1;
 
 function initializeGame(): void {
   if (gameState?.status === "playing") return;
@@ -46,6 +47,8 @@ function initializeGame(): void {
 
   const deck = shuffleArray(createDeck());
   drawPile = [...deck];
+  discardPile = [];
+  turnDirection = 1;
 
   for (const player of players) {
     for (let i = 0; i < 7; i++) {
@@ -66,6 +69,7 @@ function initializeGame(): void {
     discardTop: startCard,
     drawPileCount: drawPile.length,
     status: "playing",
+    lastAction: null,
   };
   updatePlayableCards(currentPlayer);
 
@@ -126,15 +130,84 @@ function updatePlayableCards(player: Player): void {
     .map((card) => card.id);
 }
 
-function switchTurn(): void {
+function switchTurn(steps = 1): void {
   if (!gameState) return;
   const currentIndex = gameState.players.findIndex(
     (p) => p.id === gameState!.currentPlayerId,
   );
-  const nextIndex = (currentIndex + 1) % gameState.players.length;
+  const playerCount = gameState.players.length;
+  const rawIndex = currentIndex + steps * turnDirection;
+  const nextIndex = ((rawIndex % playerCount) + playerCount) % playerCount;
   const nextPlayer = gameState.players[nextIndex];
   gameState.currentPlayerId = nextPlayer.id;
   updatePlayableCards(nextPlayer);
+}
+
+function drawCardsForPlayer(player: Player, count: number): void {
+  for (let i = 0; i < count; i++) {
+    if (drawPile.length === 0) {
+      if (discardPile.length <= 1) return;
+      const topCard = discardPile.pop();
+      drawPile = shuffleArray(discardPile);
+      discardPile = topCard ? [topCard] : [];
+    }
+
+    const card = drawPile.pop();
+    if (!card) return;
+    player.hand.push(card);
+  }
+}
+
+function applyActionCardEffects(card: Card, playerId: string): void {
+  if (!gameState || typeof card.value === "number") return;
+
+  const currentIndex = gameState.players.findIndex((p) => p.id === playerId);
+  if (currentIndex === -1) return;
+  const playerCount = gameState.players.length;
+  const targetIndex =
+    ((currentIndex + turnDirection) % playerCount + playerCount) % playerCount;
+  const targetPlayer = gameState.players[targetIndex];
+
+  if (card.value === "reverse") {
+    turnDirection = turnDirection === 1 ? -1 : 1;
+    gameState.lastAction = {
+      type: "reverse",
+      playerId,
+    };
+
+    if (playerCount === 2) {
+      switchTurn(2);
+      return;
+    }
+
+    switchTurn(1);
+    return;
+  }
+
+  if (!targetPlayer) {
+    switchTurn(1);
+    return;
+  }
+
+  if (card.value === "skip") {
+    gameState.lastAction = {
+      type: "skip",
+      playerId,
+      targetPlayerId: targetPlayer.id,
+    };
+    switchTurn(2);
+    return;
+  }
+
+  if (card.value === "draw_two") {
+    drawCardsForPlayer(targetPlayer, 2);
+    gameState.lastAction = {
+      type: "draw_two",
+      playerId,
+      targetPlayerId: targetPlayer.id,
+    };
+    switchTurn(2);
+  }
 }
 
 function handlePlayCard(connectionId: string, cardId: string): void {
@@ -157,15 +230,22 @@ function handlePlayCard(connectionId: string, cardId: string): void {
   player.hand.splice(cardIndex, 1);
   discardPile.push(card);
   gameState.discardTop = card;
+  gameState.lastAction = null;
 
   if (player.hand.length === 0) {
     gameState.status = "finished";
     gameState.winnerId = playerId;
+    gameState.drawPileCount = drawPile.length;
     broadcastGameState();
     return;
   }
 
-  switchTurn();
+  if (typeof card.value === "number") {
+    switchTurn();
+  } else {
+    applyActionCardEffects(card, playerId);
+  }
+  gameState.drawPileCount = drawPile.length;
   broadcastGameState();
 }
 
@@ -180,17 +260,8 @@ function handleDrawCard(connectionId: string): void {
   const player = gameState.players.find((p) => p.id === playerId);
   if (!player) return;
 
-  if (drawPile.length === 0) {
-    if (discardPile.length <= 1) return;
-    const topCard = discardPile.pop();
-    drawPile = shuffleArray(discardPile);
-    discardPile = topCard ? [topCard] : [];
-  }
-
-  const card = drawPile.pop();
-  if (!card) return;
-
-  player.hand.push(card);
+  drawCardsForPlayer(player, 1);
+  gameState.lastAction = null;
   updatePlayableCards(player);
 
   if (player.playableCardIds.length === 0) {

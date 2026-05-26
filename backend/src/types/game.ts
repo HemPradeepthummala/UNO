@@ -1,5 +1,5 @@
 import { Player } from "./player.ts";
-import { Card } from "./card.ts";
+import { ActionType, Card } from "./card.ts";
 
 export type GameStatus = "waiting" | "playing" | "finished";
 
@@ -10,6 +10,11 @@ export interface GameState {
   drawPileCount: number;
   status: GameStatus;
   winnerId?: string;
+  lastAction?: {
+    type: ActionType;
+    playerId: string;
+    targetPlayerId?: string;
+  } | null;
 }
 
 export interface GameMessage {

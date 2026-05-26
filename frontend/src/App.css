@@ -95,12 +95,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 120px;
+  min-height: 132px;
 }
 
 .card-back {
-  width: 76px;
-  height: 112px;
+  width: 84px;
+  height: 124px;
   border-radius: 10px;
   border: 3px solid #dce8f7;
   background:
@@ -155,8 +155,8 @@
 }
 
 .deck-card {
-  width: 84px;
-  height: 124px;
+  width: 88px;
+  height: 132px;
   border-radius: 10px;
   border: 3px solid #e6eef8;
   background:
@@ -190,8 +190,8 @@
 
 .discard-zone {
   position: relative;
-  width: 96px;
-  height: 136px;
+  width: 106px;
+  height: 146px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,8 +199,8 @@
 
 .discard-shadow-card {
   position: absolute;
-  width: 84px;
-  height: 124px;
+  width: 88px;
+  height: 132px;
   border-radius: 10px;
   background: rgba(8, 14, 24, 0.58);
   border: 2px solid rgba(255, 255, 255, 0.25);
@@ -234,7 +234,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  min-height: 132px;
+  min-height: 144px;
   overflow-x: auto;
   padding-bottom: 8px;
 }
@@ -273,4 +273,26 @@
   padding: 34px;
   z-index: 10;
   text-align: center;
+}
+
+.action-indicator {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 110px);
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(8, 21, 46, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.action-indicator.visible {
+  opacity: 1;
 }

@@ -25,6 +25,14 @@ export function Card({
   overlapOffset = 0,
 }: CardProps) {
   const colors = colorMap[card.color];
+  const cardLabel =
+    typeof card.value === "number"
+      ? String(card.value)
+      : card.value === "draw_two"
+        ? "+2"
+        : card.value === "skip"
+          ? "SKIP"
+          : "REV";
   const className = [
     "uno-card",
     isPlayable && isInteractive ? "playable" : "",
@@ -39,15 +47,15 @@ export function Card({
       className={className}
       onClick={isPlayable && isInteractive ? onClick : undefined}
       style={{
-        width: "80px",
-        height: "120px",
+        width: "88px",
+        height: "132px",
         backgroundColor: colors.background,
         border: "2px solid rgba(255, 255, 255, 0.7)",
         borderRadius: "8px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: "36px",
+        fontSize: typeof card.value === "number" ? "38px" : "24px",
         fontWeight: "bold",
         color: colors.text,
         cursor: isPlayable && isInteractive ? "pointer" : "default",
@@ -56,7 +64,7 @@ export function Card({
         flexShrink: 0,
       }}
     >
-      {card.number}
+      {cardLabel}
     </div>
   );
 }
