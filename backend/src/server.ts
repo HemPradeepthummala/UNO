@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from 'hono'
 import type { GameState } from "./types/game.ts";
 import type { Player } from "./types/player.ts";
 import type { Card } from "./types/card.ts";
@@ -68,7 +69,7 @@ function initializeGame(): void {
 function updatePlayableCards(player: Player): void {
   if (!gameState || !gameState.discardTop) return;
   player.playableCardIds = player.hand
-    .filter((card) => isPlayable(card, gameState.discardTop!))
+    .filter((card) => isPlayable(card, gameState?.discardTop!))
     .map((card) => card.id);
 }
 
@@ -217,11 +218,11 @@ async function handleWebSocket(req: Request): Promise<Response> {
   return response;
 }
 
-app.get("/ws", async (ctx) => {
+app.get("/ws", async (ctx: Context) => {
   return await handleWebSocket(ctx.req.raw);
 });
 
-app.get("/", (context) => {
+app.get("/", (context: Context) => {
   return context.text("Uno Game Server");
 });
 

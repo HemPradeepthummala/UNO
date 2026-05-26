@@ -22,11 +22,11 @@ export function Card({ card, isPlayable, onClick }: CardProps) {
       style={{
         width: "80px",
         height: "120px",
-        backgroundColor: "#FFFFFF",
+        backgroundColor: isPlayable ? "#F0FFE8" : "#FFFFFF",
         borderTopWidth: "4px",
         borderTopStyle: "solid",
         borderTopColor: bgColor,
-        border: `1px solid #E0E0E0`,
+        border: isPlayable ? `2px solid #51CF66` : `1px solid #E0E0E0`,
         borderRadius: "8px",
         display: "flex",
         alignItems: "center",

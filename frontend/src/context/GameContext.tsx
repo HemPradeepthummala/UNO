@@ -1,8 +1,9 @@
 import React, { createContext, useReducer, ReactNode } from "react";
-import { GameState } from "../types/index";
 import { gameReducer } from "./gameReducer";
+import type { AppState } from "./gameReducer";
 
-const initialState: GameState = {
+const initialState: AppState = {
+  localPlayerId: "",
   players: [],
   currentPlayerId: "",
   discardTop: null,
@@ -11,7 +12,7 @@ const initialState: GameState = {
 };
 
 export const GameContext = createContext<{
-  state: GameState;
+  state: AppState;
   dispatch: React.Dispatch<any>;
 }>({
   state: initialState,

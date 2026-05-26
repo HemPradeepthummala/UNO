@@ -9,19 +9,18 @@ export interface Card {
 export function createDeck(): Card[] {
   const colors: CardColor[] = ["red", "green", "blue", "yellow"];
   const cards: Card[] = [];
-  let cardId = 0;
 
   for (const color of colors) {
     cards.push({
-      id: `card_${cardId++}`,
+      id: `${color}-0-0`,
       color,
       number: 0,
     });
 
-    for (let i = 0; i < 2; i++) {
+    for (let occurrence = 0; occurrence < 2; occurrence++) {
       for (let number = 1; number <= 9; number++) {
         cards.push({
-          id: `card_${cardId++}`,
+          id: `${color}-${number}-${occurrence}`,
           color,
           number,
         });

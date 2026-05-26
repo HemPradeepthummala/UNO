@@ -4,28 +4,14 @@ import { useGameSocket } from "./socket/useGameSocket";
 import { Card } from "./components/Card";
 
 function GameBoard() {
-  const { state, dispatch } = useContext(GameContext);
-  const ws = useGameSocket();
+  const { state } = useContext(GameContext);
+  const { playCard, drawCard } = useGameSocket();
 
-  const currentPlayer = state.players.find((p) =>
-    p.id === state.currentPlayerId
+  const currentPlayer = state.players.find(
+    (p) => p.id === state.currentPlayerId,
   );
-  const localPlayer = state.players.find((p) =>
-    p.id === localStorage.getItem("playerId")
-  );
+  const localPlayer = state.players.find((p) => p.id === state.localPlayerId);
   const opponents = state.players.filter((p) => p.id !== localPlayer?.id);
-
-  const handlePlayCard = (cardId: string) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "PLAY_CARD", cardId }));
-    }
-  };
-
-  const handleDrawCard = () => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "DRAW_CARD" }));
-    }
-  };
 
   const isMyTurn = localPlayer && currentPlayer?.id === localPlayer.id;
   const isGameFinished = state.status === "finished";
@@ -60,10 +46,10 @@ function GameBoard() {
           {state.status === "waiting"
             ? "Waiting for players..."
             : isGameFinished
-            ? "Game Finished"
-            : isMyTurn
-            ? "Your Turn"
-            : "Opponent's Turn"}
+              ? "Game Finished"
+              : isMyTurn
+                ? "Your Turn"
+                : "Opponent's Turn"}
         </div>
       </div>
 
@@ -113,7 +99,7 @@ function GameBoard() {
             Draw Pile
           </div>
           <button
-            onClick={handleDrawCard}
+            onClick={drawCard}
             disabled={!isMyTurn || isGameFinished}
             style={{
               width: "80px",
@@ -141,22 +127,22 @@ function GameBoard() {
           >
             Discard Pile
           </div>
-          {state.discardTop
-            ? <Card card={state.discardTop} isPlayable={false} />
-            : (
-              <div
-                style={{
-                  width: "80px",
-                  height: "120px",
-                  backgroundColor: "#F0F0F0",
-                  border: "2px dashed #D0D0D0",
-                  borderRadius: "8px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              />
-            )}
+          {state.discardTop ? (
+            <Card card={state.discardTop} isPlayable={false} />
+          ) : (
+            <div
+              style={{
+                width: "80px",
+                height: "120px",
+                backgroundColor: "#F0F0F0",
+                border: "2px dashed #D0D0D0",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            />
+          )}
         </div>
       </div>
 
@@ -182,7 +168,7 @@ function GameBoard() {
               marginBottom: "12px",
             }}
           >
-            {winner.id === localStorage.getItem("playerId")
+            {winner.id === state.localPlayerId
               ? "You Won! 🎉"
               : `Player ${winner.id} Won`}
           </div>
@@ -216,24 +202,20 @@ function GameBoard() {
             paddingBottom: "8px",
           }}
         >
-          {localPlayer?.hand && localPlayer.hand.length > 0
-            ? (
-              localPlayer.hand.map((card) => (
-                <Card
-                  key={card.id}
-                  card={card}
-                  isPlayable={localPlayer.playableCardIds.includes(card.id)}
-                  onClick={() => handlePlayCard(card.id)}
-                />
-              ))
-            )
-            : (
-              <div style={{ fontSize: "14px", color: "#999" }}>
-                {state.status === "waiting"
-                  ? "Waiting for game..."
-                  : "No cards"}
-              </div>
-            )}
+          {localPlayer?.hand && localPlayer.hand.length > 0 ? (
+            localPlayer.hand.map((card) => (
+              <Card
+                key={card.id}
+                card={card}
+                isPlayable={localPlayer.playableCardIds.includes(card.id)}
+                onClick={() => playCard(card.id)}
+              />
+            ))
+          ) : (
+            <div style={{ fontSize: "14px", color: "#999" }}>
+              {state.status === "waiting" ? "Waiting for game..." : "No cards"}
+            </div>
+          )}
         </div>
       </div>
     </div>
