@@ -1,5 +1,11 @@
-export type CardColor = "red" | "green" | "blue" | "yellow";
-export type ActionType = "draw_two" | "skip" | "reverse";
+export type CardColor = "red" | "green" | "blue" | "yellow" | "wild";
+export type ActiveColor = Exclude<CardColor, "wild">;
+export type ActionType =
+  | "draw_two"
+  | "skip"
+  | "reverse"
+  | "wild"
+  | "wild_draw_four";
 export type CardValue = number | ActionType;
 
 export interface Card {
@@ -20,6 +26,7 @@ export interface GameState {
   players: Player[];
   currentPlayerId: string;
   discardTop: Card | null;
+  activeColor: ActiveColor;
   drawPileCount: number;
   status: GameStatus;
   winnerId?: string;

@@ -1,5 +1,11 @@
-export type CardColor = "red" | "green" | "blue" | "yellow";
-export type ActionType = "draw_two" | "skip" | "reverse";
+export type CardColor = "red" | "green" | "blue" | "yellow" | "wild";
+export type ActiveColor = Exclude<CardColor, "wild">;
+export type ActionType =
+  | "draw_two"
+  | "skip"
+  | "reverse"
+  | "wild"
+  | "wild_draw_four";
 export type CardValue = number | ActionType;
 
 export interface Card {
@@ -46,6 +52,19 @@ export function createDeck(): Card[] {
     }
   }
 
+  for (let occurrence = 0; occurrence < 4; occurrence++) {
+    cards.push({
+      id: `wild-${occurrence}`,
+      color: "wild",
+      value: "wild",
+    });
+    cards.push({
+      id: `wild-draw-four-${occurrence}`,
+      color: "wild",
+      value: "wild_draw_four",
+    });
+  }
+
   return cards;
 }
 
@@ -58,6 +77,11 @@ export function shuffleArray<T>(array: T[]): T[] {
   return arr;
 }
 
-export function isPlayable(card: Card, topCard: Card): boolean {
-  return card.color === topCard.color || card.value === topCard.value;
+export function isPlayable(
+  card: Card,
+  topCard: Card,
+  activeColor: ActiveColor,
+): boolean {
+  if (card.color === "wild") return true;
+  return card.color === activeColor || card.value === topCard.value;
 }

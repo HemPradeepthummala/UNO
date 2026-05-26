@@ -10,10 +10,11 @@ interface CardProps {
 }
 
 const colorMap: Record<string, { background: string; text: string }> = {
-  red: { background: "#E03131", text: "#FFFFFF" },
-  green: { background: "#2F9E44", text: "#FFFFFF" },
-  blue: { background: "#1971C2", text: "#FFFFFF" },
-  yellow: { background: "#FFD43B", text: "#1F2933" },
+  red: { background: "#f03e3e", text: "#FFFFFF" },
+  green: { background: "#37b24d", text: "#FFFFFF" },
+  blue: { background: "#228be6", text: "#FFFFFF" },
+  yellow: { background: "#ffd43b", text: "#1F2933" },
+  wild: { background: "#1e293b", text: "#FFFFFF" },
 };
 
 export function Card({
@@ -30,9 +31,13 @@ export function Card({
       ? String(card.value)
       : card.value === "draw_two"
         ? "+2"
-        : card.value === "skip"
-          ? "SKIP"
-          : "REV";
+      : card.value === "skip"
+        ? "SKIP"
+        : card.value === "reverse"
+          ? "REV"
+          : card.value === "wild_draw_four"
+            ? "W+4"
+            : "WILD";
   const className = [
     "uno-card",
     isPlayable && isInteractive ? "playable" : "",
@@ -49,17 +54,20 @@ export function Card({
       style={{
         width: "88px",
         height: "132px",
-        backgroundColor: colors.background,
+        background:
+          card.color === "wild"
+            ? "linear-gradient(145deg, #0f172a 0%, #1e293b 100%)"
+            : colors.background,
         border: "2px solid rgba(255, 255, 255, 0.7)",
         borderRadius: "8px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontSize: typeof card.value === "number" ? "38px" : "24px",
-        fontWeight: "bold",
+        fontWeight: 700,
         color: colors.text,
         cursor: isPlayable && isInteractive ? "pointer" : "default",
-        boxShadow: "0 7px 14px rgba(0, 0, 0, 0.25)",
+        boxShadow: "0 6px 12px rgba(0, 0, 0, 0.22)",
         marginLeft: overlapOffset ? `${overlapOffset}px` : 0,
         flexShrink: 0,
       }}

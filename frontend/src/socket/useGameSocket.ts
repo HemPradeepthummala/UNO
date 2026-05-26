@@ -15,7 +15,7 @@ function getClientId(): string {
 
 export interface GameSocketMethods {
   ws: WebSocket | null;
-  playCard: (cardId: string) => void;
+  playCard: (cardId: string, chosenColor?: string) => void;
   drawCard: () => void;
 }
 
@@ -62,9 +62,9 @@ export function useGameSocket(): GameSocketMethods {
     };
   }, [dispatch]);
 
-  const playCard = (cardId: string) => {
+  const playCard = (cardId: string, chosenColor?: string) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "PLAY_CARD", cardId }));
+      wsRef.current.send(JSON.stringify({ type: "PLAY_CARD", cardId, chosenColor }));
     }
   };
 

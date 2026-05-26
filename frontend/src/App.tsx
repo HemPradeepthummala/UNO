@@ -2,7 +2,7 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import { GameContext, GameProvider } from "./context/GameContext.tsx";
 import { useGameSocket } from "./socket/useGameSocket.ts";
 import { Card } from "./components/Card.tsx";
-import type { Player } from "./types/index.ts";
+import type { ActiveColor, Card as UnoCard, Player } from "./types/index.ts";
 import "./App.css";
 
 function OpponentCards({ count }: { count: number }) {
@@ -55,6 +55,7 @@ function GameBoard() {
   const { state } = useContext(GameContext);
   const { playCard, drawCard } = useGameSocket();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [pendingWildCard, setPendingWildCard] = useState<UnoCard | null>(null);
   const [actionMessage, setActionMessage] = useState<string>("");
   const [showActionMessage, setShowActionMessage] = useState(false);
 
@@ -78,6 +79,7 @@ function GameBoard() {
 
   useEffect(() => {
     setSelectedCardId(null);
+    setPendingWildCard(null);
   }, [state.currentPlayerId]);
 
   useEffect(() => {
@@ -91,7 +93,11 @@ function GameBoard() {
         ? `+2  Player ${actor} -> Player ${target}`
         : action.type === "skip"
           ? `SKIP  Player ${actor} skipped Player ${target}`
-          : "REVERSE  Direction changed";
+          : action.type === "reverse"
+            ? "REVERSE  Direction changed"
+            : action.type === "wild_draw_four"
+              ? `+4  Player ${actor} -> Player ${target}`
+              : `WILD  Player ${actor} changed color`;
 
     setActionMessage(message);
     setShowActionMessage(true);
@@ -104,7 +110,7 @@ function GameBoard() {
     drawCard();
   };
 
-  const onCardClick = (card: { id: string }) => {
+  const onCardClick = (card: UnoCard) => {
     if (!isMyTurn || isGameFinished || !playableIds.has(card.id)) return;
 
     if (selectedCardId !== card.id) {
@@ -112,7 +118,19 @@ function GameBoard() {
       return;
     }
 
+    if (card.value === "wild" || card.value === "wild_draw_four") {
+      setPendingWildCard(card);
+      return;
+    }
+
     playCard(card.id);
+    setSelectedCardId(null);
+  };
+
+  const playWildCardWithColor = (chosenColor: ActiveColor) => {
+    if (!pendingWildCard) return;
+    playCard(pendingWildCard.id, chosenColor);
+    setPendingWildCard(null);
     setSelectedCardId(null);
   };
 
@@ -160,12 +178,11 @@ function GameBoard() {
             className={`deck-btn ${!isMyTurn || isGameFinished ? "disabled" : ""}`}
             disabled={!isMyTurn || isGameFinished}
           >
-            <div
-              className="deck-card"
-              style={{ opacity: isMyTurn && !isGameFinished ? 1 : 0.65 }}
-            >
-              <div className="uno-gradient">UNO</div>
-              <div style={{ fontSize: 16, fontWeight: 800 }}>{state.drawPileCount}</div>
+            <div className="deck-card-wrap" style={{ opacity: isMyTurn && !isGameFinished ? 1 : 0.65 }}>
+              <div className="card-back">
+                <div className="card-back-inner" />
+              </div>
+              <div className="deck-count">{state.drawPileCount}</div>
             </div>
           </button>
 
@@ -176,14 +193,19 @@ function GameBoard() {
               {state.discardTop ? (
                 <Card card={state.discardTop} isPlayable={false} isInteractive={false} />
               ) : (
-                <div className="deck-card" />
+                <div className="card-back">
+                  <div className="card-back-inner" />
+                </div>
               )}
             </div>
           </div>
         </div>
 
+        <div className={`active-color-chip color-${state.activeColor}`}>
+          ACTIVE: {state.activeColor.toUpperCase()}
+        </div>
+
         <div className="hand-zone">
-          <div className="hand-label">YOUR HAND</div>
           <div className="player-hand">
             {localPlayer?.hand && localPlayer.hand.length > 0 ? (
               localPlayer.hand.map((card, index) => (
@@ -207,8 +229,28 @@ function GameBoard() {
               </div>
             )}
           </div>
+          <div className="hand-label">YOUR HAND</div>
         </div>
       </div>
+
+      {pendingWildCard && (
+        <div className="wild-picker-backdrop">
+          <div className="wild-picker">
+            <div className="wild-title">Choose Color</div>
+            <div className="wild-options">
+              {(["red", "blue", "green", "yellow"] as ActiveColor[]).map((color) => (
+                <button
+                  key={color}
+                  className={`wild-option color-${color}`}
+                  onClick={() => playWildCardWithColor(color)}
+                >
+                  {color.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isGameFinished && winner && (
         <div className="winner-modal">

@@ -7,6 +7,7 @@ const initialState: AppState = {
   players: [],
   currentPlayerId: "",
   discardTop: null,
+  activeColor: "red",
   drawPileCount: 0,
   status: "waiting",
 };

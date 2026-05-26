@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from 'hono'
 import type { GameState } from "./types/game.ts";
 import type { Player } from "./types/player.ts";
-import type { ActionType, Card } from "./types/card.ts";
+import type { ActiveColor, Card } from "./types/card.ts";
 import { createDeck, isPlayable, shuffleArray } from "./types/card.ts";
 
 const app = new Hono();
@@ -17,6 +17,7 @@ let gameState: GameState | null = null;
 let drawPile: Card[] = [];
 let discardPile: Card[] = [];
 let turnDirection: 1 | -1 = 1;
+const ACTIVE_COLORS: ActiveColor[] = ["red", "green", "blue", "yellow"];
 
 function initializeGame(): void {
   if (gameState?.status === "playing") return;
@@ -67,6 +68,7 @@ function initializeGame(): void {
     players,
     currentPlayerId: currentPlayer.id,
     discardTop: startCard,
+    activeColor: startCard.color === "wild" ? "red" : startCard.color,
     drawPileCount: drawPile.length,
     status: "playing",
     lastAction: null,
@@ -125,8 +127,10 @@ function sendGameState(socket: WebSocket): void {
 
 function updatePlayableCards(player: Player): void {
   if (!gameState || !gameState.discardTop) return;
+  const topCard = gameState.discardTop;
+  const activeColor = gameState.activeColor;
   player.playableCardIds = player.hand
-    .filter((card) => isPlayable(card, gameState?.discardTop!))
+    .filter((card) => isPlayable(card, topCard, activeColor))
     .map((card) => card.id);
 }
 
@@ -184,6 +188,15 @@ function applyActionCardEffects(card: Card, playerId: string): void {
     return;
   }
 
+  if (card.value === "wild") {
+    gameState.lastAction = {
+      type: "wild",
+      playerId,
+    };
+    switchTurn(1);
+    return;
+  }
+
   if (!targetPlayer) {
     switchTurn(1);
     return;
@@ -207,10 +220,44 @@ function applyActionCardEffects(card: Card, playerId: string): void {
       targetPlayerId: targetPlayer.id,
     };
     switchTurn(2);
+    return;
+  }
+
+  if (card.value === "wild_draw_four") {
+    drawCardsForPlayer(targetPlayer, 4);
+    gameState.lastAction = {
+      type: "wild_draw_four",
+      playerId,
+      targetPlayerId: targetPlayer.id,
+    };
+    switchTurn(2);
   }
 }
 
-function handlePlayCard(connectionId: string, cardId: string): void {
+function canPlayWildDrawFour(player: Player, playedCardId: string): boolean {
+  if (!gameState) return false;
+
+  return !player.hand.some(
+    (card) =>
+      card.id !== playedCardId &&
+      card.color !== "wild" &&
+      card.color === gameState!.activeColor,
+  );
+}
+
+function resolveChosenColor(chosenColor?: string): ActiveColor {
+  if (!chosenColor) return ACTIVE_COLORS[Math.floor(Math.random() * 4)];
+  if (ACTIVE_COLORS.includes(chosenColor as ActiveColor)) {
+    return chosenColor as ActiveColor;
+  }
+  return ACTIVE_COLORS[Math.floor(Math.random() * 4)];
+}
+
+function handlePlayCard(
+  connectionId: string,
+  cardId: string,
+  chosenColor?: string,
+): void {
   if (!gameState || gameState.status !== "playing") return;
 
   const playerId = connectionPlayerIds.get(connectionId);
@@ -226,11 +273,19 @@ function handlePlayCard(connectionId: string, cardId: string): void {
 
   const card = player.hand[cardIndex];
   if (!player.playableCardIds.includes(cardId)) return;
+  if (card.value === "wild_draw_four" && !canPlayWildDrawFour(player, cardId)) {
+    return;
+  }
 
   player.hand.splice(cardIndex, 1);
   discardPile.push(card);
   gameState.discardTop = card;
   gameState.lastAction = null;
+  if (card.color === "wild") {
+    gameState.activeColor = resolveChosenColor(chosenColor);
+  } else {
+    gameState.activeColor = card.color;
+  }
 
   if (player.hand.length === 0) {
     gameState.status = "finished";
@@ -318,7 +373,7 @@ async function handleWebSocket(req: Request): Promise<Response> {
     try {
       const message = JSON.parse(event.data);
       if (message.type === "PLAY_CARD") {
-        handlePlayCard(connectionId, message.cardId);
+        handlePlayCard(connectionId, message.cardId, message.chosenColor);
       } else if (message.type === "DRAW_CARD") {
         handleDrawCard(connectionId);
       }
