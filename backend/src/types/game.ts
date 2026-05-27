@@ -8,6 +8,7 @@ export interface GameState {
   currentPlayerId: string;
   discardTop: Card | null;
   activeColor: ActiveColor;
+  hasDrawnThisTurn: boolean;
   drawPileCount: number;
   status: GameStatus;
   winnerId?: string;

@@ -6,7 +6,7 @@ export type ActionType =
   | "reverse"
   | "wild"
   | "wild_draw_four";
-export type CardValue = number | ActionType;
+export type CardValue = "number" | ActionType;
 
 export interface Card {
   id: string;
@@ -27,6 +27,7 @@ export interface GameState {
   currentPlayerId: string;
   discardTop: Card | null;
   activeColor: ActiveColor;
+  hasDrawnThisTurn: boolean;
   drawPileCount: number;
   status: GameStatus;
   winnerId?: string;

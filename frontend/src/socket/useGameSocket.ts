@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef } from "react";
-import { GameContext } from "../context/GameContext";
+import { GameContext } from "../context/GameContext.tsx";
 
 const WS_URL = "ws://localhost:8000/ws";
 const CLIENT_ID_KEY = "unoClientId";
@@ -17,6 +17,7 @@ export interface GameSocketMethods {
   ws: WebSocket | null;
   playCard: (cardId: string, chosenColor?: string) => void;
   drawCard: () => void;
+  passTurn: () => void;
 }
 
 export function useGameSocket(): GameSocketMethods {
@@ -74,9 +75,16 @@ export function useGameSocket(): GameSocketMethods {
     }
   };
 
+  const passTurn = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "PASS_TURN" }));
+    }
+  };
+
   return {
     ws: wsRef.current,
     playCard,
     drawCard,
+    passTurn,
   };
 }

@@ -10,10 +10,10 @@ interface CardProps {
 }
 
 const colorMap: Record<string, { background: string; text: string }> = {
-  red: { background: "#f03e3e", text: "#FFFFFF" },
-  green: { background: "#37b24d", text: "#FFFFFF" },
-  blue: { background: "#228be6", text: "#FFFFFF" },
-  yellow: { background: "#ffd43b", text: "#1F2933" },
+  red: { background: "linear-gradient(160deg, #ff6156 0%, #d32626 100%)", text: "#FFFFFF" },
+  green: { background: "linear-gradient(160deg, #42cf66 0%, #248640 100%)", text: "#FFFFFF" },
+  blue: { background: "linear-gradient(160deg, #3ba3ff 0%, #1b67d6 100%)", text: "#FFFFFF" },
+  yellow: { background: "linear-gradient(160deg, #ffd95a 0%, #f2a100 100%)", text: "#1f2933" },
   wild: { background: "#1e293b", text: "#FFFFFF" },
 };
 
@@ -58,16 +58,16 @@ export function Card({
           card.color === "wild"
             ? "linear-gradient(145deg, #0f172a 0%, #1e293b 100%)"
             : colors.background,
-        border: "2px solid rgba(255, 255, 255, 0.7)",
-        borderRadius: "8px",
+        borderRadius: "11px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: typeof card.value === "number" ? "38px" : "24px",
-        fontWeight: 700,
+        fontSize: typeof card.value === "number" ? "50px" : "30px",
+        fontWeight: 900,
+        lineHeight: 1,
+        textShadow: "0 2px 4px rgba(0,0,0,0.35)",
         color: colors.text,
         cursor: isPlayable && isInteractive ? "pointer" : "default",
-        boxShadow: "0 6px 12px rgba(0, 0, 0, 0.22)",
         marginLeft: overlapOffset ? `${overlapOffset}px` : 0,
         flexShrink: 0,
       }}

@@ -69,6 +69,7 @@ function initializeGame(): void {
     currentPlayerId: currentPlayer.id,
     discardTop: startCard,
     activeColor: startCard.color === "wild" ? "red" : startCard.color,
+    hasDrawnThisTurn: false,
     drawPileCount: drawPile.length,
     status: "playing",
     lastAction: null,
@@ -144,6 +145,7 @@ function switchTurn(steps = 1): void {
   const nextIndex = ((rawIndex % playerCount) + playerCount) % playerCount;
   const nextPlayer = gameState.players[nextIndex];
   gameState.currentPlayerId = nextPlayer.id;
+  gameState.hasDrawnThisTurn = false;
   updatePlayableCards(nextPlayer);
 }
 
@@ -311,18 +313,30 @@ function handleDrawCard(connectionId: string): void {
   if (!playerId) return;
 
   if (gameState.currentPlayerId !== playerId) return;
+  if (gameState.hasDrawnThisTurn) return;
 
   const player = gameState.players.find((p) => p.id === playerId);
   if (!player) return;
 
   drawCardsForPlayer(player, 1);
   gameState.lastAction = null;
+  gameState.hasDrawnThisTurn = true;
   updatePlayableCards(player);
 
-  if (player.playableCardIds.length === 0) {
-    switchTurn();
-  }
+  gameState.drawPileCount = drawPile.length;
+  broadcastGameState();
+}
 
+function handlePassTurn(connectionId: string): void {
+  if (!gameState || gameState.status !== "playing") return;
+
+  const playerId = connectionPlayerIds.get(connectionId);
+  if (!playerId) return;
+  if (gameState.currentPlayerId !== playerId) return;
+  if (!gameState.hasDrawnThisTurn) return;
+
+  gameState.lastAction = null;
+  switchTurn();
   gameState.drawPileCount = drawPile.length;
   broadcastGameState();
 }
@@ -376,6 +390,8 @@ async function handleWebSocket(req: Request): Promise<Response> {
         handlePlayCard(connectionId, message.cardId, message.chosenColor);
       } else if (message.type === "DRAW_CARD") {
         handleDrawCard(connectionId);
+      } else if (message.type === "PASS_TURN") {
+        handlePassTurn(connectionId);
       }
     } catch {
       // Parse error

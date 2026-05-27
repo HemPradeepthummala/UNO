@@ -14,6 +14,7 @@ const initialState: AppState = {
   currentPlayerId: "",
   discardTop: null,
   activeColor: "red",
+  hasDrawnThisTurn: false,
   drawPileCount: 0,
   status: "waiting",
 };

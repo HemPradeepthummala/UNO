@@ -4,7 +4,7 @@ import { useGameSocket } from "./socket/useGameSocket.ts";
 import { Card } from "./components/Card.tsx";
 import type { ActiveColor, Card as UnoCard, Player } from "./types/index.ts";
 import "./App.css";
-
+  
 function OpponentCards({ count }: { count: number }) {
   const visible = Math.min(Math.max(count, 1), 10);
   const start = -((visible - 1) * 14) / 2;
@@ -40,12 +40,25 @@ function OpponentSpot({
   placement: "top-opponent" | "left-opponent" | "right-opponent";
 }) {
   if (!player) return null;
+  const isDanger = player.hand.length <= 2;
 
   return (
     <div
       className={`opponent-area ${placement} ${active ? "active" : "inactive"}`}
     >
-      <div className="player-label">PLAYER {player.id}</div>
+      <div className="player-hud">
+        <div className="avatar-wrap">
+          <div className="player-avatar">{`P${player.id}`}</div>
+          <span className="online-dot" />
+        </div>
+        <div className="player-meta">
+          <div className="player-label">{`PLAYER ${player.id}`}</div>
+          <div className="player-stats">
+            <span className="card-count">{player.hand.length} cards</span>
+            {isDanger && <span className="uno-warning">UNO!</span>}
+          </div>
+        </div>
+      </div>
       <OpponentCards count={player.hand.length} />
     </div>
   );
@@ -53,11 +66,12 @@ function OpponentSpot({
 
 function GameBoard() {
   const { state } = useContext(GameContext);
-  const { playCard, drawCard } = useGameSocket();
+  const { playCard, drawCard, passTurn } = useGameSocket();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [pendingWildCard, setPendingWildCard] = useState<UnoCard | null>(null);
   const [actionMessage, setActionMessage] = useState<string>("");
   const [showActionMessage, setShowActionMessage] = useState(false);
+  const [drawLockLocal, setDrawLockLocal] = useState(false);
 
   const currentPlayer = state.players.find((p) => p.id === state.currentPlayerId);
   const localPlayer = state.players.find((p) => p.id === state.localPlayerId);
@@ -71,6 +85,8 @@ function GameBoard() {
   const topOpponent = opponents[0];
   const leftOpponent = opponents[1];
   const rightOpponent = opponents[2];
+  const localCards = localPlayer?.hand.length ?? 0;
+  const localDanger = localCards <= 2 && state.status !== "waiting";
 
   const playableIds = useMemo(
     () => new Set(localPlayer?.playableCardIds ?? []),
@@ -81,6 +97,12 @@ function GameBoard() {
     setSelectedCardId(null);
     setPendingWildCard(null);
   }, [state.currentPlayerId]);
+
+  useEffect(() => {
+    if (!isMyTurn || state.hasDrawnThisTurn) {
+      setDrawLockLocal(false);
+    }
+  }, [isMyTurn, state.hasDrawnThisTurn, state.drawPileCount]);
 
   useEffect(() => {
     const action = state.lastAction;
@@ -106,7 +128,8 @@ function GameBoard() {
   }, [state.lastAction]);
 
   const onDraw = () => {
-    if (!isMyTurn || isGameFinished) return;
+    if (!isMyTurn || isGameFinished || state.hasDrawnThisTurn || drawLockLocal) return;
+    setDrawLockLocal(true);
     drawCard();
   };
 
@@ -134,11 +157,16 @@ function GameBoard() {
     setSelectedCardId(null);
   };
 
+  const onPassTurn = () => {
+    if (!isMyTurn || isGameFinished || !state.hasDrawnThisTurn) return;
+    passTurn();
+  };
+
   return (
     <div className="uno-root">
       <div className="top-bar">
-        <div className="title">UNO TABLE</div>
-        <div>
+        <div className="title">UNO ARENA</div>
+        <div className="status-pill">
           {state.status === "waiting"
             ? "Waiting for players..."
             : isGameFinished
@@ -148,6 +176,23 @@ function GameBoard() {
                 : isMyTurn
                   ? "Your Turn"
                   : "Opponent's Turn"}
+        </div>
+        <div className="local-hud">
+          <div className={`local-player-panel ${isMyTurn ? "active" : ""}`}>
+            <div className="avatar-wrap">
+              <div className="player-avatar me">
+                {state.localPlayerId ? `P${state.localPlayerId}` : "SP"}
+              </div>
+              <span className="online-dot" />
+            </div>
+            <div className="player-meta">
+              <div className="player-label">{state.localPlayerId ? `PLAYER ${state.localPlayerId}` : "SPECTATOR"}</div>
+              <div className="player-stats">
+                <span className="card-count">{localCards} cards</span>
+                {localDanger && <span className="uno-warning">UNO!</span>}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -175,8 +220,8 @@ function GameBoard() {
         <div className="center-board">
           <button
             onClick={onDraw}
-            className={`deck-btn ${!isMyTurn || isGameFinished ? "disabled" : ""}`}
-            disabled={!isMyTurn || isGameFinished}
+            className={`deck-btn ${!isMyTurn || isGameFinished || state.hasDrawnThisTurn || drawLockLocal ? "disabled" : ""}`}
+            disabled={!isMyTurn || isGameFinished || state.hasDrawnThisTurn || drawLockLocal}
           >
             <div className="deck-card-wrap" style={{ opacity: isMyTurn && !isGameFinished ? 1 : 0.65 }}>
               <div className="card-back">
@@ -187,6 +232,7 @@ function GameBoard() {
           </button>
 
           <div className="discard-zone">
+            <div className="discard-focus-ring" />
             <div className="discard-shadow-card one" />
             <div className="discard-shadow-card two" />
             <div className="discard-main">
@@ -208,17 +254,32 @@ function GameBoard() {
         <div className="hand-zone">
           <div className="player-hand">
             {localPlayer?.hand && localPlayer.hand.length > 0 ? (
-              localPlayer.hand.map((card, index) => (
-                <Card
-                  key={card.id}
-                  card={card}
-                  isPlayable={playableIds.has(card.id)}
-                  isInteractive={isMyTurn && !isGameFinished}
-                  selected={selectedCardId === card.id}
-                  overlapOffset={index === 0 ? 0 : -18}
-                  onClick={() => onCardClick(card)}
-                />
-              ))
+              localPlayer.hand.map((card, index) => {
+                const count = localPlayer.hand.length;
+                const offset = index - (count - 1) / 2;
+                const rotate = Math.max(-12, Math.min(12, offset * 2.2));
+                const rise = Math.abs(offset) * 1.7;
+
+                return (
+                  <div
+                    key={card.id}
+                    className="hand-card-wrap"
+                    style={{
+                      marginLeft: index === 0 ? 0 : -24,
+                      transform: `translateY(${rise}px) rotate(${rotate}deg)`,
+                    }}
+                  >
+                    <Card
+                      card={card}
+                      isPlayable={playableIds.has(card.id)}
+                      isInteractive={isMyTurn && !isGameFinished}
+                      selected={selectedCardId === card.id}
+                      overlapOffset={0}
+                      onClick={() => onCardClick(card)}
+                    />
+                  </div>
+                );
+              })
             ) : (
               <div style={{ fontSize: 14, opacity: 0.9 }}>
                 {state.status === "waiting"
@@ -229,6 +290,13 @@ function GameBoard() {
               </div>
             )}
           </div>
+          {isMyTurn && state.hasDrawnThisTurn && !isGameFinished && (
+            <div className="turn-actions">
+              <button className="pass-btn" onClick={onPassTurn}>
+                PASS TURN
+              </button>
+            </div>
+          )}
           <div className="hand-label">YOUR HAND</div>
         </div>
       </div>
